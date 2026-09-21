@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../config/supabaseClient'
-import HeaderStatus from '../../components/revendedor/HeaderStatus'
-import GoalProgress from '../../components/revendedor/GoalProgress'
-import ReferralSection from '../../components/revendedor/ReferralSection'
-import ReferralsTable from '../../components/revendedor/ReferralsTable'
+
+// Adicionar a extensão .jsx nos componentes:
+import HeaderStatus from '../../components/revendedor/HeaderStatus.jsx'
+import GoalProgress from '../../components/revendedor/GoalProgress.jsx'
+import ReferralSection from '../../components/revendedor/ReferralSection.jsx'
+import ReferralsTable from '../../components/revendedor/ReferralsTable.jsx'
 
 export default function DashboardRevendedor() {
   const { profile, loading: authLoading } = useAuth()
@@ -51,24 +53,20 @@ export default function DashboardRevendedor() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12 font-sans">
-      {/* Cabeçalho de Status */}
       <HeaderStatus profile={profile} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 space-y-6">
-        {/* Termômetro de Metas Semestrais */}
         <GoalProgress 
           currentKg={profile?.total_volume_kg || 0} 
           currentBrl={profile?.total_revenue_brl || 0}
           currentLevel={profile?.level || 'DNA Profissional'}
         />
 
-        {/* Central de Indicações (Link e Código) */}
         <ReferralSection 
           referralCode={profile?.referral_code} 
           currentLevel={profile?.level} 
         />
 
-        {/* Tabela de Indicações Realizada */}
         <ReferralsTable referrals={referrals} />
       </main>
     </div>
