@@ -288,6 +288,8 @@ export default function DashboardRevendedor() {
             </div>
           </div>
 
+          
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
@@ -337,4 +339,28 @@ export default function DashboardRevendedor() {
       </main>
     </div>
   )
+  // Adicione o seguinte estado ao Dashboard do Revendedor
+const [isNewSaleOpen, setIsNewSaleOpen] = useState(false)
+const [saleForm, setSaleForm] = useState({ order_number: '', volume_kg: '', revenue_brl: '' })
+const [saleMessage, setSaleMessage] = useState('')
+
+async function handleRegisterSale(e) {
+  e.preventDefault()
+  try {
+    const { error } = await supabase.from('sales').insert({
+      revendedor_id: profile.id,
+      order_number: saleForm.order_number,
+      volume_kg: parseFloat(saleForm.volume_kg),
+      revenue_brl: parseFloat(saleForm.revenue_brl),
+      status: 'pending' // Venda entra como pendente para análise do financeiro
+    })
+
+    if (error) throw error
+    setSaleMessage('Venda informada com sucesso! Aguardando validação do financeiro.')
+    setSaleForm({ order_number: '', volume_kg: '', revenue_brl: '' })
+    setIsNewSaleOpen(false)
+  } catch (err) {
+    alert('Erro ao registrar venda: ' + err.message)
+  }
+}
 }

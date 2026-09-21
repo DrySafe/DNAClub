@@ -476,4 +476,40 @@ export default function DashboardGerente() {
 
     </div>
   )
+  // Função para Aprovação de Venda pelo Gestor/Financeiro
+async function handleApproveSale(sale) {
+  try {
+    // 1. Atualiza o status da venda para 'approved'
+    const { error: saleError } = await supabase
+      .from('sales')
+      .update({ status: 'approved', approved_by: profile.id, approved_at: new Date() })
+      .eq('id', sale.id)
+
+    if (saleError) throw saleError
+
+    // 2. Busca o acumulado atual da revendedora
+    const { data: revProfile, error: profError } = await supabase
+      .from('profiles')
+      .select('total_volume_kg, total_revenue_brl')
+      .eq('id', sale.revendedor_id)
+      .single()
+
+    if (profError) throw profError
+
+    // 3. Incrementa o volume de quilos e faturamento no perfil da revendedora
+    const newKg = (parseFloat(revProfile.total_volume_kg) || 0) + parseFloat(sale.volume_kg)
+    const newBrl = (parseFloat(revProfile.total_revenue_brl) || 0) + parseFloat(sale.revenue_brl)
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ total_volume_kg: newKg, total_revenue_brl: newBrl })
+      .eq('id', sale.revendedor_id)
+
+    if (updateError) throw updateError
+    alert('Venda aprovada com sucesso! O progresso da revendedora foi atualizado.')
+    fetchSales()
+  } catch (err) {
+    alert('Erro ao aprovar venda: ' + err.message)
+  }
+}
 }
