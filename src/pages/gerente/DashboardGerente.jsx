@@ -3,12 +3,15 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { supabase } from '../../config/supabaseClient.js'
 import { 
   Users, UserPlus, Key, ShieldCheck, CheckCircle2, XCircle, 
-  Clock, Package, Search, Award, LogOut, RefreshCw, AlertCircle
+  Clock, Search, LogOut, RefreshCw, DollarSign
 } from 'lucide-react'
 
 export default function DashboardGerente() {
   const { profile, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState('users') // 'users', 'referrals', 'kits'
+  
+  // O perfil 'financeiro' abre diretamente na aba de Validações de Pagamentos/Indicações
+  const isFinanceiro = profile?.role === 'financeiro'
+  const [activeTab, setActiveTab] = useState(isFinanceiro ? 'referrals' : 'users') 
   
   // Estados de dados
   const [usersList, setUsersList] = useState([])
@@ -21,7 +24,7 @@ export default function DashboardGerente() {
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
 
-  // Formulário de Novo Usuário
+  // Formulário de Novo Usuário (Apenas Admin)
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -31,8 +34,6 @@ export default function DashboardGerente() {
     level: 'DNA Profissional'
   })
 
-  // Formulário de Nova Senha
-  const [newPassword, setNewPassword] = useState('')
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
@@ -45,7 +46,6 @@ export default function DashboardGerente() {
     setLoading(false)
   }
 
-  // Busca lista de perfis/usuários
   async function fetchUsers() {
     try {
       const { data, error } = await supabase
@@ -60,7 +60,6 @@ export default function DashboardGerente() {
     }
   }
 
-  // Busca histórico de indicações
   async function fetchReferrals() {
     try {
       const { data, error } = await supabase
@@ -82,13 +81,13 @@ export default function DashboardGerente() {
     }
   }
 
-  // Handler para Criar Novo Usuário no Supabase Auth + Profiles
   async function handleCreateUser(e) {
     e.preventDefault()
+    if (isFinanceiro) return // Bloqueia tentativa de criação caso seja perfil financeiro
+
     setActionMessage({ type: '', text: '' })
 
     try {
-      // 1. Cria a conta no Supabase Auth usando signUp
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
@@ -97,7 +96,6 @@ export default function DashboardGerente() {
       if (authError) throw authError
 
       if (authData?.user) {
-        // 2. Insere/Atualiza o perfil na tabela profiles
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
@@ -121,8 +119,8 @@ export default function DashboardGerente() {
     }
   }
 
-  // Handler para Atualizar Nível do Revendedor
   async function handleUpdateLevel(userId, newLevel) {
+    if (isFinanceiro) return
     try {
       const { error } = await supabase
         .from('profiles')
@@ -136,7 +134,6 @@ export default function DashboardGerente() {
     }
   }
 
-  // Handler para Atualizar Status da Indicação (Aprovar / Invalidar)
   async function handleUpdateReferralStatus(referralId, newStatus) {
     try {
       const { error } = await supabase
@@ -167,26 +164,33 @@ export default function DashboardGerente() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12 font-sans">
       
-      {/* Header do Gestor */}
+      {/* Header */}
       <header className="bg-slate-900 text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold">
               <ShieldCheck className="w-4 h-4" />
-              Painel Administrativo
+              Portal do Gestor {isFinanceiro ? '(Perfil Financeiro)' : '(Administrador)'}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold">Portal de Gestão Depilamor</h1>
-            <p className="text-xs text-slate-400">Gerencie usuários, permissões e aprovação de indicações do Clube DNA</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold">Clube DNA Depilamor</h1>
+            <p className="text-xs text-slate-400">
+              {isFinanceiro 
+                ? 'Painel de Aprovação e Validação Financeira de Indicações'
+                : 'Gestão completa de usuários, permissões e aprovações do clube'}
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsCreateUserOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl text-xs transition-all shadow-lg shadow-rose-500/20 active:scale-95"
-            >
-              <UserPlus className="w-4 h-4" />
-              Novo Usuário
-            </button>
+            {/* Apenas Administradores podem visualizar o botão Novo Usuário */}
+            {!isFinanceiro && (
+              <button
+                onClick={() => setIsCreateUserOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl text-xs transition-all shadow-lg shadow-rose-500/20 active:scale-95"
+              >
+                <UserPlus className="w-4 h-4" />
+                Novo Usuário
+              </button>
+            )}
 
             <button
               onClick={logout}
@@ -204,15 +208,18 @@ export default function DashboardGerente() {
 
         {/* Abas de Navegação */}
         <div className="bg-white rounded-2xl p-1.5 shadow-lg border border-slate-100 inline-flex gap-1 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
-              activeTab === 'users' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Usuários & Permissões ({usersList.length})
-          </button>
+          {/* Aba Usuários só aparece para Admin */}
+          {!isFinanceiro && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+                activeTab === 'users' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Usuários & Permissões ({usersList.length})
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('referrals')}
@@ -220,12 +227,12 @@ export default function DashboardGerente() {
               activeTab === 'referrals' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
-            <Clock className="w-4 h-4" />
-            Validação de Indicações ({referralsList.length})
+            <DollarSign className="w-4 h-4" />
+            Validação Financeira / Indicações ({referralsList.length})
           </button>
         </div>
 
-        {/* MENSAGEM DE FEEDBACK */}
+        {/* Mensagens de Ação */}
         {actionMessage.text && (
           <div className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between ${
             actionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -235,8 +242,8 @@ export default function DashboardGerente() {
           </div>
         )}
 
-        {/* TAB 1: GESTÃO DE USUÁRIOS */}
-        {activeTab === 'users' && (
+        {/* TAB 1: GESTÃO DE USUÁRIOS (Exclusiva para Admin) */}
+        {activeTab === 'users' && !isFinanceiro && (
           <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
@@ -265,8 +272,8 @@ export default function DashboardGerente() {
                   <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase tracking-wider">
                     <th className="py-3 px-2">Nome Completo</th>
                     <th className="py-3 px-2">CPF/CNPJ</th>
-                    <th className="py-3 px-2">Role (Perfil)</th>
-                    <th className="py-3 px-2">Categoria Atual</th>
+                    <th className="py-3 px-2">Perfil (Role)</th>
+                    <th className="py-3 px-2">Categoria</th>
                     <th className="py-3 px-2 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -277,7 +284,9 @@ export default function DashboardGerente() {
                       <td className="py-3.5 px-2 text-slate-500 font-mono">{user.cpf_cnpj || '---'}</td>
                       <td className="py-3.5 px-2">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                          user.role === 'admin' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-slate-100 text-slate-700'
+                          user.role === 'admin' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 
+                          user.role === 'financeiro' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                          'bg-slate-100 text-slate-700'
                         }`}>
                           {user.role}
                         </span>
@@ -301,7 +310,6 @@ export default function DashboardGerente() {
                             setIsResetPasswordOpen(true)
                           }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all"
-                          title="Alterar Senha"
                         >
                           <Key className="w-3.5 h-3.5" />
                           Senha
@@ -315,11 +323,11 @@ export default function DashboardGerente() {
           </div>
         )}
 
-        {/* TAB 2: VALIDAÇÃO DE INDICAÇÕES */}
+        {/* TAB 2: VALIDAÇÃO FINANCEIRA DE INDICAÇÕES */}
         {activeTab === 'referrals' && (
           <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-4">
             <h3 className="text-base font-black text-slate-900">Aprovação do Primeiro Pedido</h3>
-            <p className="text-xs text-slate-500">Valide as compras realizadas por clientes indicadas para liberar o cupom da revendedora[cite: 1, 2].</p>
+            <p className="text-xs text-slate-500">Valide os pagamentos e pedidos realizados por clientes indicadas para emissão do cupom de desconto da revendedora[cite: 1, 2].</p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -335,7 +343,7 @@ export default function DashboardGerente() {
                 <tbody className="divide-y divide-slate-50">
                   {referralsList.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="py-8 text-center text-slate-400">Nenhuma indicação registrada.</td>
+                      <td colSpan="5" className="py-8 text-center text-slate-400">Nenhuma indicação pendente de validação.</td>
                     </tr>
                   ) : (
                     referralsList.map((ref) => (
@@ -379,8 +387,8 @@ export default function DashboardGerente() {
 
       </main>
 
-      {/* MODAL 1: CRIAR NOVO USUÁRIO */}
-      {isCreateUserOpen && (
+      {/* MODAL: CRIAR NOVO USUÁRIO */}
+      {isCreateUserOpen && !isFinanceiro && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
             <h3 className="text-base font-black text-slate-900">Cadastrar Novo Usuário</h3>
@@ -417,7 +425,8 @@ export default function DashboardGerente() {
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-slate-900"
                   >
                     <option value="revendedor">Revendedor</option>
-                    <option value="admin">Gestor / Admin</option>
+                    <option value="financeiro">Financeiro (Apenas Validações)</option>
+                    <option value="admin">Gestor / Admin (Acesso Total)</option>
                   </select>
                 </div>
               </div>
