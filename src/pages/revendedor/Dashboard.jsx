@@ -4,30 +4,37 @@ import { supabase } from '../../config/supabaseClient.js'
 import { 
   LogOut, Award, Sparkles, Trophy, Copy, Check, 
   Share2, MessageCircle, Users, Clock, CheckCircle2, XCircle,
-  HelpCircle, ChevronRight, Zap
+  PlusCircle, ShoppingBag, Zap, RefreshCw
 } from 'lucide-react'
 
 export default function DashboardRevendedor() {
   const { profile, logout } = useAuth()
+  
+  // Listas de dados
   const [referrals, setReferrals] = useState([])
+  const [sales, setSales] = useState([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [filter, setFilter] = useState('all')
+  const [referralFilter, setReferralFilter] = useState('all')
 
-  // Se o perfil do banco não tiver dados ainda, usa valores padrão para exibição visual
+  // Modal para informar compra
+  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false)
+  const [saleForm, setSaleForm] = useState({ order_number: '', volume_kg: '', revenue_brl: '' })
+  const [saleMessage, setSaleMessage] = useState({ type: '', text: '' })
+
+  // Dados do perfil (com fallback para exibição)
   const userLevel = profile?.level || 'DNA Profissional'
-  const currentKg = profile?.total_volume_kg || 120
-  const currentBrl = profile?.total_revenue_brl || 5400
-  const referralCode = profile?.referral_code || 'DNA-REV123'
+  const currentKg = profile?.total_volume_kg || 0
+  const currentBrl = profile?.total_revenue_brl || 0
+  const referralCode = profile?.referral_code || 'DNA-REV'
 
-  // Configuração dos Níveis do Regulamento
+  // Regras e Metas por Nível
   const levelConfigs = {
     'DNA Profissional': {
       nextLevel: 'DNA Referência',
       targetKg: 151,
       targetBrl: 8000,
       badgeColor: 'from-slate-700 to-slate-900 border-slate-600 text-slate-100',
-      tagColor: 'bg-slate-800 text-slate-200 border-slate-700',
       discReferrer: '3%',
       discReferred: '1%'
     },
@@ -36,7 +43,6 @@ export default function DashboardRevendedor() {
       targetKg: 200,
       targetBrl: 15000,
       badgeColor: 'from-blue-800 to-indigo-950 border-blue-700 text-blue-100',
-      tagColor: 'bg-blue-900 text-blue-200 border-blue-800',
       discReferrer: '4%',
       discReferred: '1%'
     },
@@ -45,7 +51,6 @@ export default function DashboardRevendedor() {
       targetKg: 301,
       targetBrl: 25000,
       badgeColor: 'from-amber-800 to-amber-950 border-amber-700 text-amber-100',
-      tagColor: 'bg-amber-900 text-amber-200 border-amber-800',
       discReferrer: '6%',
       discReferred: '2%'
     },
@@ -54,7 +59,6 @@ export default function DashboardRevendedor() {
       targetKg: 300,
       targetBrl: 25000,
       badgeColor: 'from-rose-800 to-pink-950 border-rose-700 text-rose-100',
-      tagColor: 'bg-rose-900 text-rose-200 border-rose-800',
       discReferrer: '8%',
       discReferred: '2%'
     }
@@ -68,15 +72,20 @@ export default function DashboardRevendedor() {
 
   useEffect(() => {
     if (profile?.id) {
-      fetchReferrals()
+      fetchDashboardData()
     } else {
       setLoading(false)
     }
   }, [profile])
 
+  async function fetchDashboardData() {
+    setLoading(true)
+    await Promise.all([fetchReferrals(), fetchSales()])
+    setLoading(false)
+  }
+
   async function fetchReferrals() {
     try {
-      setLoading(true)
       const { data, error } = await supabase
         .from('referrals')
         .select(`
@@ -93,8 +102,49 @@ export default function DashboardRevendedor() {
       setReferrals(data || [])
     } catch (err) {
       console.error('Erro ao carregar indicações:', err.message)
-    } finally {
-      setLoading(false)
+    }
+  }
+
+  async function fetchSales() {
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('revendedor_id', profile.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setSales(data || [])
+    } catch (err) {
+      console.error('Erro ao carregar histórico de compras:', err.message)
+    }
+  }
+
+  // Registrar nova compra realizada pela revendedora
+  async function handleRegisterSale(e) {
+    e.preventDefault()
+    setSaleMessage({ type: '', text: '' })
+
+    try {
+      const { error } = await supabase.from('sales').insert({
+        revendedor_id: profile.id,
+        order_number: saleForm.order_number,
+        volume_kg: parseFloat(saleForm.volume_kg),
+        revenue_brl: parseFloat(saleForm.revenue_brl),
+        status: 'pending' // Fica pendente para validação do financeiro
+      })
+
+      if (error) throw error
+
+      setSaleMessage({ 
+        type: 'success', 
+        text: 'Compra informada com sucesso! Aguardando validação da equipe financeira.' 
+      })
+      setSaleForm({ order_number: '', volume_kg: '', revenue_brl: '' })
+      setIsNewSaleOpen(false)
+      fetchSales()
+    } catch (err) {
+      setSaleMessage({ type: 'error', text: 'Erro ao registrar compra: ' + err.message })
     }
   }
 
@@ -112,14 +162,23 @@ export default function DashboardRevendedor() {
   }
 
   const filteredReferrals = referrals.filter((item) => {
-    if (filter === 'all') return true
-    return item.status === filter
+    if (referralFilter === 'all') return true
+    return item.status === referralFilter
   })
 
   const statusBadges = {
     pending: { label: 'Pendente', icon: Clock, style: 'bg-amber-50 text-amber-700 border-amber-200' },
     approved: { label: 'Aprovada', icon: CheckCircle2, style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    rejected: { label: 'Rejeitada', icon: XCircle, style: 'bg-rose-50 text-rose-700 border-rose-200' },
     invalid: { label: 'Inválida', icon: XCircle, style: 'bg-rose-50 text-rose-700 border-rose-200' }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
@@ -137,12 +196,21 @@ export default function DashboardRevendedor() {
               Olá, {profile?.full_name || 'Revendedora'}!
             </h1>
             <p className="text-xs sm:text-sm text-slate-300">
-              Gerencie suas metas semestrais e acompanhe seus cupons de indicação
+              Acompanhe seu progresso semestral e informe novas compras
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Badge Digital */}
+            {/* Botão de Informar Nova Compra */}
+            <button
+              onClick={() => setIsNewSaleOpen(true)}
+              className="flex items-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-2xl text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Informar Compra
+            </button>
+
+            {/* Badge do Nível */}
             <div className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-3 rounded-2xl flex items-center gap-3 shadow-lg">
               <div className="p-2.5 bg-rose-500 text-white rounded-xl shadow-md shadow-rose-500/30">
                 <Award className="w-6 h-6" />
@@ -170,7 +238,17 @@ export default function DashboardRevendedor() {
 
       {/* Conteúdo Central */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 space-y-6">
-        
+
+        {/* Mensagens de Ação */}
+        {saleMessage.text && (
+          <div className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between shadow-lg ${
+            saleMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}>
+            <span>{saleMessage.text}</span>
+            <button onClick={() => setSaleMessage({ type: '', text: '' })} className="underline font-black">Fechar</button>
+          </div>
+        )}
+
         {/* 2. Termômetro de Metas Semestrais */}
         <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -180,7 +258,7 @@ export default function DashboardRevendedor() {
               </div>
               <div>
                 <h3 className="text-lg font-black text-slate-900">Progresso Semestral</h3>
-                <p className="text-xs text-slate-500">Meta de compras para subida de categoria</p>
+                <p className="text-xs text-slate-500">Métricas acumuladas a partir de compras validadas</p>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full">
@@ -193,7 +271,7 @@ export default function DashboardRevendedor() {
             {/* Metrica Quilos */}
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
               <div className="flex justify-between text-xs font-bold text-slate-800">
-                <span>Volume Total: <strong className="text-rose-600">{currentKg} kg</strong></span>
+                <span>Volume Total: <strong className="text-rose-600 font-black">{currentKg} kg</strong></span>
                 <span className="text-slate-500">Meta: {currentConfig.targetKg} kg</span>
               </div>
               <div className="w-full bg-slate-200 h-3.5 rounded-full overflow-hidden p-0.5">
@@ -207,7 +285,7 @@ export default function DashboardRevendedor() {
             {/* Metrica Faturamento */}
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
               <div className="flex justify-between text-xs font-bold text-slate-800">
-                <span>Faturamento: <strong className="text-emerald-600">R$ {Number(currentBrl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                <span>Faturamento: <strong className="text-emerald-600 font-black">R$ {Number(currentBrl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
                 <span className="text-slate-500">Meta: R$ {Number(currentConfig.targetBrl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="w-full bg-slate-200 h-3.5 rounded-full overflow-hidden p-0.5">
@@ -220,7 +298,66 @@ export default function DashboardRevendedor() {
           </div>
         </div>
 
-        {/* 3. Banner Indique e Ganhe */}
+        {/* 3. Tabela do Histórico de Compras/Pedidos Informados */}
+        <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Histórico de Compras Informadas</h3>
+                <p className="text-xs text-slate-500">Acompanhe a validação dos seus lançamentos de compras pelo financeiro</p>
+              </div>
+            </div>
+            <button onClick={fetchSales} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl" title="Atualizar">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase tracking-wider">
+                  <th className="py-3 px-2">Nº do Pedido</th>
+                  <th className="py-3 px-2">Data do Lançamento</th>
+                  <th className="py-3 px-2">Volume (kg)</th>
+                  <th className="py-3 px-2">Valor (R$)</th>
+                  <th className="py-3 px-2 text-right">Status da Validação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {sales.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-8 text-center text-slate-400">
+                      Nenhuma compra informada ainda. Clique em "Informar Compra" acima para lançar seu pedido.
+                    </td>
+                  </tr>
+                ) : (
+                  sales.map((item) => {
+                    const BadgeIcon = statusBadges[item.status]?.icon || Clock
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3.5 px-2 font-mono font-bold text-slate-800">{item.order_number || '---'}</td>
+                        <td className="py-3.5 px-2 text-slate-500">{new Date(item.created_at).toLocaleDateString('pt-BR')}</td>
+                        <td className="py-3.5 px-2 font-bold text-rose-600">{item.volume_kg} kg</td>
+                        <td className="py-3.5 px-2 font-bold text-emerald-600">R$ {Number(item.revenue_brl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3.5 px-2 text-right">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-black ${statusBadges[item.status]?.style}`}>
+                            <BadgeIcon className="w-3.5 h-3.5" />
+                            {statusBadges[item.status]?.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 4. Banner Indique e Ganhe */}
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl border border-slate-700/50">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2">
@@ -230,7 +367,7 @@ export default function DashboardRevendedor() {
               </div>
               <h3 className="text-xl font-black">Indique Novas Clientes e Ganhe Descontos</h3>
               <p className="text-slate-300 text-xs max-w-xl">
-                Sua categoria <strong className="text-rose-400 font-extrabold">{userLevel}</strong> garante <strong className="text-white font-black">{currentConfig.discReferrer}</strong> de desconto no seu próximo pedido e <strong className="text-white font-black">{currentConfig.discReferred}</strong> para a nova cliente no primeiro pedido[cite: 1, 2].
+                Sua categoria <strong className="text-rose-400 font-extrabold">{userLevel}</strong> garante <strong className="text-white font-black">{currentConfig.discReferrer}</strong> de desconto no seu próximo pedido e <strong className="text-white font-black">{currentConfig.discReferred}</strong> para a nova cliente no primeiro pedido.
               </p>
             </div>
 
@@ -260,7 +397,7 @@ export default function DashboardRevendedor() {
           </div>
         </div>
 
-        {/* 4. Tabela do Histórico de Indicações */}
+        {/* 5. Tabela do Histórico de Indicações */}
         <div className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -277,9 +414,9 @@ export default function DashboardRevendedor() {
               {['all', 'pending', 'approved', 'invalid'].map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setFilter(tab)}
+                  onClick={() => setReferralFilter(tab)}
                   className={`px-3 py-1.5 rounded-xl capitalize transition-all ${
-                    filter === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    referralFilter === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   {tab === 'all' ? 'Todas' : tab === 'pending' ? 'Pendentes' : tab === 'approved' ? 'Aprovadas' : 'Inválidas'}
@@ -287,8 +424,6 @@ export default function DashboardRevendedor() {
               ))}
             </div>
           </div>
-
-          
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -337,30 +472,86 @@ export default function DashboardRevendedor() {
         </div>
 
       </main>
+
+      {/* MODAL: INFORMAR COMPRA/PEDIDO */}
+      {isNewSaleOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-black text-slate-900">Informar Nova Compra / Pedido</h3>
+              <button 
+                onClick={() => setIsNewSaleOpen(false)} 
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Digite os dados da sua compra efetuada na Depilamor. A equipe financeira irá conferir e aprovar para somar na sua meta semestral.
+            </p>
+
+            <form onSubmit={handleRegisterSale} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nº do Pedido / Nota Fiscal</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: PED-1042"
+                  value={saleForm.order_number}
+                  onChange={(e) => setSaleForm({ ...saleForm, order_number: e.target.value })}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Volume em Quilos (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="Ex: 12.5"
+                    value={saleForm.volume_kg}
+                    onChange={(e) => setSaleForm({ ...saleForm, volume_kg: e.target.value })}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Valor em Reais (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="Ex: 650.00"
+                    value={saleForm.revenue_brl}
+                    onChange={(e) => setSaleForm({ ...saleForm, revenue_brl: e.target.value })}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsNewSaleOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-2xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-2xl shadow-lg active:scale-95"
+                >
+                  Enviar para Análise
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   )
-  // Adicione o seguinte estado ao Dashboard do Revendedor
-const [isNewSaleOpen, setIsNewSaleOpen] = useState(false)
-const [saleForm, setSaleForm] = useState({ order_number: '', volume_kg: '', revenue_brl: '' })
-const [saleMessage, setSaleMessage] = useState('')
-
-async function handleRegisterSale(e) {
-  e.preventDefault()
-  try {
-    const { error } = await supabase.from('sales').insert({
-      revendedor_id: profile.id,
-      order_number: saleForm.order_number,
-      volume_kg: parseFloat(saleForm.volume_kg),
-      revenue_brl: parseFloat(saleForm.revenue_brl),
-      status: 'pending' // Venda entra como pendente para análise do financeiro
-    })
-
-    if (error) throw error
-    setSaleMessage('Venda informada com sucesso! Aguardando validação do financeiro.')
-    setSaleForm({ order_number: '', volume_kg: '', revenue_brl: '' })
-    setIsNewSaleOpen(false)
-  } catch (err) {
-    alert('Erro ao registrar venda: ' + err.message)
-  }
-}
 }
