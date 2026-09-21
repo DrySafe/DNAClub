@@ -1,7 +1,7 @@
-import { Trophy, TrendingUp } from 'lucide-react'
+import React from 'react'
+import { Trophy } from 'lucide-react'
 
-export default function GoalProgress({ currentKg, currentBrl, currentLevel }) {
-  // Lógica simplificada de progresso conforme o regulamento
+export default function GoalProgress({ currentKg = 0, currentBrl = 0, currentLevel = 'DNA Profissional' }) {
   const goals = {
     'DNA Profissional': { nextLevel: 'DNA Referência', targetKg: 151, targetBrl: 8000 },
     'DNA Referência': { nextLevel: 'DNA Master', targetKg: 200, targetBrl: 15000 },
@@ -31,31 +31,23 @@ export default function GoalProgress({ currentKg, currentBrl, currentLevel }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Barra de Volume (kg) */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs font-bold text-slate-700">
             <span>Volume em Quilos: {currentKg} kg</span>
             <span>Meta: {currentGoal.targetKg} kg</span>
           </div>
           <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden p-0.5">
-            <div 
-              className="bg-gradient-to-r from-rose-500 to-pink-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${percentKg}%` }}
-            ></div>
+            <div className="bg-gradient-to-r from-rose-500 to-pink-500 h-full rounded-full transition-all duration-500" style={{ width: `${percentKg}%` }}></div>
           </div>
         </div>
 
-        {/* Barra de Faturamento (R$) */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs font-bold text-slate-700">
-            <span>Faturamento: R$ {currentBrl.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            <span>Meta: R$ {currentGoal.targetBrl.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            <span>Faturamento: R$ {Number(currentBrl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            <span>Meta: R$ {Number(currentGoal.targetBrl).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden p-0.5">
-            <div 
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${percentBrl}%` }}
-            ></div>
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" style={{ width: `${percentBrl}%` }}></div>
           </div>
         </div>
       </div>

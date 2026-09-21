@@ -1,24 +1,18 @@
 import { supabase } from '../config/supabaseClient'
 
-// Registar nova indicação
-export async function createReferral(referredId, referralCode) {      
-  const { data: referrer, error: refError } = await supabase
-    .from('profiles')
-    .select('id, level')
-    .eq('referral_code', referralCode)
-    .single()
-
-  if (refError || !referrer) throw new Error('Código de indicação inválido.')
-
+export async function getReferralsByUserId(userId) {
   const { data, error } = await supabase
     .from('referrals')
-    .insert([{
-      referrer_id: referrer.id,
-      referred_id: referredId,
-      referrer_level_at_creation: referrer.level,
-      status: 'pending'
-    }])
+    .select(`
+      id,
+      status,
+      created_at,
+      referrer_level_at_creation,
+      profiles!referrals_referred_id_fkey(full_name, cpf_cnpj)
+    `)
+    .eq('referrer_id', userId)
+    .order('created_at', { ascending: false })
 
-  if (error) throw new Error('Erro ao registar indicação.')
-  return data
+  if (error) throw error
+  return data || []
 }

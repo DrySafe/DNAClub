@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Copy, Check, Share2, MessageCircle } from 'lucide-react'
 
-export default function ReferralSection({ referralCode, currentLevel }) {
+export default function ReferralSection({ referralCode = 'MEUCODIGO', currentLevel = 'DNA Profissional' }) {
   const [copied, setCopied] = useState(false)
 
-  // Descontos baseados no regulamento por categoria
   const discountRules = {
     'DNA Profissional': { referrer: '3%', referred: '1%' },
     'DNA Referência': { referrer: '4%', referred: '1%' },
@@ -42,26 +41,18 @@ export default function ReferralSection({ referralCode, currentLevel }) {
           </p>
         </div>
 
-        {/* Bloco do Código e Botões de Ação */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3">
             <div>
               <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Seu Código</span>
-              <span className="font-mono font-bold text-rose-400 tracking-wider text-base">{referralCode || 'CÓDIGO'}</span>
+              <span className="font-mono font-bold text-rose-400 tracking-wider text-base">{referralCode}</span>
             </div>
-            <button
-              onClick={handleCopy}
-              className="p-2 hover:bg-slate-700 rounded-xl transition-colors text-slate-300 hover:text-white"
-              title="Copiar Link"
-            >
+            <button onClick={handleCopy} className="p-2 hover:bg-slate-700 rounded-xl transition-colors text-slate-300 hover:text-white">
               {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
             </button>
           </div>
 
-          <button
-            onClick={handleWhatsAppShare}
-            className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 font-bold text-slate-950 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 text-xs"
-          >
+          <button onClick={handleWhatsAppShare} className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 font-bold text-slate-950 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 text-xs">
             <MessageCircle className="w-4 h-4 fill-current" />
             Enviar via WhatsApp
           </button>
