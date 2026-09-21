@@ -1,11 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 
-// Páginas
-import LoginPage from '../pages/auth/LoginPage'
-import DashboardRevendedor from '../pages/revendedor/Dashboard'
-import DashboardGerente from '../pages/gerente/DashboardGerente'
-import CadastroIndicado from '../pages/cliente/CadastroIndicado'
+// Importações com extensão explicita .jsx
+import LoginPage from '../pages/auth/LoginPage.jsx'
+import DashboardRevendedor from '../pages/revendedor/Dashboard.jsx'
+import DashboardGerente from '../pages/gerente/DashboardGerente.jsx'
+import CadastroIndicado from '../pages/cliente/CadastroIndicado.jsx'
 
 export function AppRoutes() {
   return (
