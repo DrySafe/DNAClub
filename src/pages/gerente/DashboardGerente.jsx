@@ -4,14 +4,14 @@ import { supabase } from '../../config/supabaseClient.js'
 import { 
   Users, UserPlus, Key, ShieldCheck, CheckCircle2, XCircle, 
   Search, LogOut, RefreshCw, DollarSign, ShoppingBag, PlusCircle,
-  UserCheck, ArrowRightLeft, Briefcase, User
+  ArrowRightLeft, Briefcase, User, Edit3
 } from 'lucide-react'
 
 export default function DashboardGerente() {
   const { profile, logout } = useAuth()
   
   const isFinanceiro = profile?.role === 'financeiro'
-  const [activeTab, setActiveTab] = useState('sales') // 'users', 'sales', 'referrals'
+  const [activeTab, setActiveTab] = useState('sales') // 'sales', 'users', 'referrals'
   const [userSubTab, setUserSubTab] = useState('revendedora') // 'revendedora', 'colaborador', 'cliente'
   
   // Listas de dados
@@ -25,22 +25,23 @@ export default function DashboardGerente() {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false)
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false)
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
 
-  // Formulário de Novo Usuário Geral
+  // Formulários
   const [newUser, setNewUser] = useState({
     email: '', password: '', full_name: '', cpf_cnpj: '', role: 'revendedor', level: 'DNA Profissional'
   })
 
-  // Formulário Rápido de Novo Cliente
   const [quickClient, setQuickClient] = useState({
     full_name: '', cpf_cnpj: '', email: ''
   })
 
-  // Formulário de Lançamento de Venda
   const [newSale, setNewSale] = useState({
     revendedor_id: '', cliente_id: '', order_number: '', volume_kg: '', revenue_brl: ''
   })
 
+  const [newPassword, setNewPassword] = useState('')
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
@@ -100,20 +101,59 @@ export default function DashboardGerente() {
     }
   }
 
-  // Alterar Perfil (Cliente <-> Revendedora)
-  async function handleToggleRole(userId, currentRole) {
-    const targetRole = currentRole === 'cliente' ? 'revendedor' : 'cliente'
+  // Alterar Perfil / Role
+  async function handleUpdateUserRole(userId, newRole) {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: targetRole })
+        .update({ role: newRole })
         .eq('id', userId)
 
       if (error) throw error
-      setActionMessage({ type: 'success', text: `Perfil alterado para ${targetRole === 'revendedor' ? 'Revendedora' : 'Cliente'} com sucesso!` })
+      setActionMessage({ type: 'success', text: 'Perfil alterado com sucesso!' })
       fetchUsers()
     } catch (err) {
       alert('Erro ao alterar perfil: ' + err.message)
+    }
+  }
+
+  // Alterar Nível do Revendedor
+  async function handleUpdateLevel(userId, newLevel) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ level: newLevel })
+        .eq('id', userId)
+
+      if (error) throw error
+      setActionMessage({ type: 'success', text: 'Nível atualizado com sucesso!' })
+      fetchUsers()
+    } catch (err) {
+      alert('Erro ao atualizar nível: ' + err.message)
+    }
+  }
+
+  // Resetar Senha do Usuário selecionado
+  async function handleResetPassword(e) {
+    e.preventDefault()
+    if (!selectedUser || !newPassword) return
+
+    try {
+      // Atualização de senha via Supabase Auth Admin
+      const { error } = await supabase.auth.admin.updateUserById(
+        selectedUser.id,
+        { password: newPassword }
+      )
+
+      if (error) throw error
+
+      setActionMessage({ type: 'success', text: `Senha de ${selectedUser.full_name} atualizada com sucesso!` })
+      setIsResetPasswordOpen(false)
+      setNewPassword('')
+      setSelectedUser(null)
+    } catch (err) {
+      // Fallback em caso de RLS estrito: exibe instrução de reset por email ou aviso
+      setActionMessage({ type: 'error', text: 'Instrução de alteração de senha: ' + err.message })
     }
   }
 
@@ -143,13 +183,49 @@ export default function DashboardGerente() {
         setActionMessage({ type: 'success', text: 'Cliente cadastrado com sucesso!' })
         setIsQuickClientOpen(false)
         await fetchUsers()
-        
-        // Seleciona o cliente recém-criado na venda
         setNewSale(prev => ({ ...prev, cliente_id: authData.user.id }))
         setQuickClient({ full_name: '', cpf_cnpj: '', email: '' })
       }
     } catch (err) {
       alert('Erro ao cadastrar cliente rápido: ' + err.message)
+    }
+  }
+
+  // Criar Usuário Novo (Admin)
+  async function handleCreateUser(e) {
+    e.preventDefault()
+    if (isFinanceiro) return
+    setActionMessage({ type: '', text: '' })
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+      })
+
+      if (authError) throw authError
+
+      if (authData?.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authData.user.id,
+            full_name: newUser.full_name,
+            cpf_cnpj: newUser.cpf_cnpj,
+            role: newUser.role,
+            level: newUser.level,
+            referral_code: `DNA-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
+          })
+
+        if (profileError) throw profileError
+
+        setActionMessage({ type: 'success', text: 'Usuário cadastrado com sucesso!' })
+        setNewUser({ email: '', password: '', full_name: '', cpf_cnpj: '', role: 'revendedor', level: 'DNA Profissional' })
+        setIsCreateUserOpen(false)
+        fetchUsers()
+      }
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err.message || 'Erro ao criar usuário.' })
     }
   }
 
@@ -170,7 +246,6 @@ export default function DashboardGerente() {
 
       if (saleError) throw saleError
 
-      // Se for selecionada uma revendedora, soma na meta dela
       if (newSale.revendedor_id) {
         const revProfile = usersList.find(u => u.id === newSale.revendedor_id)
         const newKg = (parseFloat(revProfile?.total_volume_kg) || 0) + parseFloat(newSale.volume_kg)
@@ -251,7 +326,7 @@ export default function DashboardGerente() {
               Portal de Gestão Depilamor
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Painel de Gestão & Finanças</h1>
-            <p className="text-xs text-slate-400">Controle unificado de vendas, clientes, revendedoras e permissões</p>
+            <p className="text-xs text-slate-400">Controle unificado de vendas, clientes, revendedoras e colaboradores</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -326,7 +401,7 @@ export default function DashboardGerente() {
           </div>
         )}
 
-        {/* TAB 1: GESTÃO DE PESSOAS (Revendedoras, Colaboradores, Clientes) */}
+        {/* TAB 1: GESTÃO DE PESSOAS */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
             
@@ -379,10 +454,10 @@ export default function DashboardGerente() {
                   <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase tracking-wider">
                     <th className="py-3 px-2">Nome Completo</th>
                     <th className="py-3 px-2">CPF/CNPJ</th>
-                    <th className="py-3 px-2">Perfil Atual</th>
+                    <th className="py-3 px-2">Perfil (Role)</th>
                     {userSubTab === 'revendedora' && <th className="py-3 px-2">Categoria DNA</th>}
                     {userSubTab === 'revendedora' && <th className="py-3 px-2">Acumulado (kg / R$)</th>}
-                    <th className="py-3 px-2 text-right">Mudar Perfil</th>
+                    <th className="py-3 px-2 text-right">Ações & Permissões</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -393,33 +468,67 @@ export default function DashboardGerente() {
                       <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="py-3.5 px-2 font-black text-slate-800">{u.full_name || 'Sem Nome'}</td>
                         <td className="py-3.5 px-2 text-slate-500 font-mono">{u.cpf_cnpj || '---'}</td>
+                        
+                        {/* Seletor/Badge de Perfil (Role) */}
                         <td className="py-3.5 px-2">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                            u.role === 'revendedor' ? 'bg-rose-100 text-rose-800' :
-                            u.role === 'cliente' ? 'bg-emerald-100 text-emerald-800' :
-                            'bg-purple-100 text-purple-800'
-                          }`}>
-                            {u.role}
-                          </span>
+                          {!isFinanceiro ? (
+                            <select
+                              value={u.role || 'revendedor'}
+                              onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-black uppercase border focus:outline-none ${
+                                u.role === 'admin' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                                u.role === 'financeiro' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                u.role === 'cliente' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                'bg-rose-50 text-rose-800 border-rose-200'
+                              }`}
+                            >
+                              <option value="revendedor">Revendedor</option>
+                              <option value="cliente">Cliente</option>
+                              <option value="financeiro">Financeiro</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-800">
+                              {u.role}
+                            </span>
+                          )}
                         </td>
+
+                        {/* Coluna Categoria (Se Revendedora) */}
                         {userSubTab === 'revendedora' && (
-                          <td className="py-3.5 px-2 font-extrabold text-rose-600">{u.level || 'DNA Profissional'}</td>
+                          <td className="py-3.5 px-2">
+                            <select
+                              value={u.level || 'DNA Profissional'}
+                              onChange={(e) => handleUpdateLevel(u.id, e.target.value)}
+                              className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 text-xs font-bold text-rose-600 focus:outline-none"
+                            >
+                              <option value="DNA Profissional">DNA Profissional</option>
+                              <option value="DNA Referência">DNA Referência</option>
+                              <option value="DNA Master">DNA Master</option>
+                              <option value="DNA MOR">DNA MOR</option>
+                            </select>
+                          </td>
                         )}
+
                         {userSubTab === 'revendedora' && (
                           <td className="py-3.5 px-2 font-bold text-slate-700">
                             {u.total_volume_kg || 0} kg / R$ {Number(u.total_revenue_brl || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                         )}
-                        <td className="py-3.5 px-2 text-right">
-                          {u.role !== 'admin' && u.role !== 'financeiro' && (
-                            <button
-                              onClick={() => handleToggleRole(u.id, u.role)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold rounded-xl transition-all"
-                            >
-                              <ArrowRightLeft className="w-3.5 h-3.5 text-rose-500" />
-                              {u.role === 'cliente' ? 'Mudar p/ Revendedora' : 'Mudar p/ Cliente'}
-                            </button>
-                          )}
+
+                        {/* Botões de Ação para TODOS os usuários (Incluindo Colaboradores) */}
+                        <td className="py-3.5 px-2 text-right space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedUser(u)
+                              setIsResetPasswordOpen(true)
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition-all"
+                            title="Alterar Senha"
+                          >
+                            <Key className="w-3.5 h-3.5 text-slate-600" />
+                            Alterar Senha
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -522,7 +631,48 @@ export default function DashboardGerente() {
 
       </main>
 
-      {/* MODAL 1: LANÇAR VENDA (Com seleção de Cliente e Botão Novo Cliente) */}
+      {/* MODAL 1: ALTERAR SENHA DO USUÁRIO / COLABORADOR */}
+      {isResetPasswordOpen && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border space-y-4 text-xs">
+            <h3 className="text-base font-black text-slate-900">Alterar Senha de Acesso</h3>
+            <p className="text-slate-500">Defina uma nova senha para <strong className="text-slate-900">{selectedUser.full_name}</strong> ({selectedUser.role}):</p>
+
+            <form onSubmit={handleResetPassword} className="space-y-3">
+              <div>
+                <label className="block font-bold mb-1">Nova Senha</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsResetPasswordOpen(false)
+                    setSelectedUser(null)
+                  }} 
+                  className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl shadow-md">
+                  Atualizar Senha
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: LANÇAR VENDA */}
       {isNewSaleOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border space-y-4">
@@ -532,8 +682,6 @@ export default function DashboardGerente() {
             </div>
 
             <form onSubmit={handleCreateDirectSale} className="space-y-3 text-xs">
-              
-              {/* Seleção do Cliente + Botão Novo Cliente Rápido */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="font-bold text-slate-700">Cliente Comprador</label>
@@ -558,7 +706,6 @@ export default function DashboardGerente() {
                 </select>
               </div>
 
-              {/* Seleção da Revendedora (Opcional se for Venda Direta da Depilamor) */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Revendedora (Para pontuar na Meta)</label>
                 <select
@@ -622,7 +769,7 @@ export default function DashboardGerente() {
         </div>
       )}
 
-      {/* MODAL 2: CADASTRO RÁPIDO DE CLIENTE */}
+      {/* MODAL 3: CADASTRO RÁPIDO DE CLIENTE */}
       {isQuickClientOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border space-y-3 text-xs">
@@ -664,6 +811,82 @@ export default function DashboardGerente() {
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsQuickClientOpen(false)} className="px-3 py-2 bg-slate-100 font-bold rounded-xl">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-rose-500 text-white font-bold rounded-xl shadow-md">Salvar e Selecionar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CRIAR NOVO USUÁRIO */}
+      {isCreateUserOpen && !isFinanceiro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border space-y-4">
+            <h3 className="text-base font-black text-slate-900">Cadastrar Novo Usuário</h3>
+            <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold mb-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  className="w-full p-3 bg-slate-50 border rounded-2xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1">CPF ou CNPJ</label>
+                  <input
+                    type="text"
+                    required
+                    value={newUser.cpf_cnpj}
+                    onChange={(e) => setNewUser({ ...newUser, cpf_cnpj: e.target.value })}
+                    className="w-full p-3 bg-slate-50 border rounded-2xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">Perfil (Role)</label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    className="w-full p-3 bg-slate-50 border rounded-2xl font-bold"
+                  >
+                    <option value="revendedor">Revendedor</option>
+                    <option value="cliente">Cliente</option>
+                    <option value="financeiro">Financeiro</option>
+                    <option value="admin">Gestor / Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">E-mail</label>
+                <input
+                  type="email"
+                  required
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full p-3 bg-slate-50 border rounded-2xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">Senha Inicial</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full p-3 bg-slate-50 border rounded-2xl"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button type="button" onClick={() => setIsCreateUserOpen(false)} className="px-4 py-2 bg-slate-100 rounded-2xl font-bold">Cancelar</button>
+                <button type="submit" className="px-5 py-2 bg-slate-900 text-white font-bold rounded-2xl">Criar Usuário</button>
               </div>
             </form>
           </div>
