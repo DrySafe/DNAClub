@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Login.jsx'
+import Login from './pages/LoginPage.jsx'
 import DashboardRevendedor from './pages/revendedor/Dashboard.jsx'
 import DashboardGerente from './pages/gerente/DashboardGerente.jsx'
 import IndicacaoPublica from './pages/IndicacaoPublica.jsx'
