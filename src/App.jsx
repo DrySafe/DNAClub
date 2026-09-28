@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import LoginPage from './pages/LoginPage.jsx'
+import LoginPage from './pages/auth/LoginPage.jsx'
 import DashboardRevendedor from './pages/revendedor/Dashboard.jsx'
 import DashboardGerente from './pages/gerente/DashboardGerente.jsx'
 import IndicacaoPublica from './pages/IndicacaoPublica.jsx'
