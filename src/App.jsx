@@ -8,7 +8,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/indicacao" element={<IndicacaoPublica />} />
         <Route path="/dashboard" element={<DashboardRevendedor />} />
         <Route path="/gerente" element={<DashboardGerente />} />

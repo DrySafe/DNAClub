@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../config/supabaseClient'
+import { supabase } from '../config/supabaseClient'
 import { ShieldCheck, UserCheck, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
