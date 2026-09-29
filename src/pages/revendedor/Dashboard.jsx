@@ -168,6 +168,23 @@ export default function DashboardRevendedor() {
     }
   }
 
+  // Função para garantir o encerramento de sessão e redirecionamento
+  async function handleLogout() {
+    try {
+      // 1. Encerra a sessão no Supabase
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Erro ao fazer logout no Supabase:', err.message)
+    } finally {
+      // 2. Executa o logout do contexto se existir
+      if (logout) logout()
+      
+      // 3. Limpa o localStorage e redireciona forçadamente para a tela de login
+      localStorage.clear()
+      navigate('/login')
+    }
+  }
+
   function handleCopy() {
     navigator.clipboard.writeText(referralLink)
     setCopied(true)
