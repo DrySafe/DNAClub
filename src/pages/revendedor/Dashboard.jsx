@@ -121,21 +121,32 @@ export default function DashboardRevendedor() {
   }
 
   // Registrar nova compra realizada pela revendedora
+  // Registrar nova compra realizada pela revendedora (Sintaxe Corrigida)
   async function handleRegisterSale(e) {
     e.preventDefault()
     setSaleMessage({ type: '', text: '' })
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-        revendedor_id: user.id,
-        order_number: saleForm.order_number,
-        volume_kg: parseFloat(saleForm.volume_kg),
-        revenue_brl: parseFloat(saleForm.revenue_brl),
-        status: 'pending' // Fica pendente para validação do financeiro
+      // 1. Busca primeiro a sessão do usuário no Supabase Auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+      // 2. Define o ID ativo (do profile ou da sessão Auth)
+      const activeUserId = profile?.id || user?.id
+
+      if (!activeUserId) {
+        throw new Error('Sessão expirada. Por favor, recarregue a página e faça login novamente.')
       }
-      if (userError || !user) {
-      alert('Sessão expirada. Por favor, faça login novamente.')
-      return
+
+      // 3. Insere os dados na tabela sales com a sintaxe correta
+      const { error } = await supabase
+        .from('sales')
+        .insert({
+          revendedor_id: activeUserId,
+          order_number: saleForm.order_number,
+          volume_kg: parseFloat(saleForm.volume_kg),
+          revenue_brl: parseFloat(saleForm.revenue_brl),
+          status: 'pending'
+        })
 
       if (error) throw error
 
