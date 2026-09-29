@@ -194,58 +194,61 @@ export default function DashboardRevendedor() {
     }
   }
 
-  async function handleCreateUser(e) {
-  e.preventDefault()
-  setSubmitting(true)
-
-  try {
-    // 1. Regista a conta de acesso no Auth do Supabase
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: newUserForm.email,
-      password: newUserForm.password,
-    })
-
-    if (authError) throw authError
-
-    if (authData?.user) {
-      // 2. Insere os dados do perfil na tabela profiles com o role correto (admin, financeiro, revendedor, cliente)
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: authData.user.id,
-        full_name: newUserForm.full_name,
-        cpf_cnpj: newUserForm.cpf_cnpj,
-        phone: newUserForm.phone,
-        role: newUserForm.role, // 'admin' | 'financeiro' | 'revendedor' | 'cliente'
-        level: newUserForm.role === 'revendedor' ? 'DNA Profissional' : null,
-        referral_code: newUserForm.role === 'revendedor' ? `DNA-${Math.random().toString(36).substring(2, 7).toUpperCase()}` : null
-      })
-
-      if (profileError) throw profileError
-
-      alert('Usuário cadastrado com sucesso!')
-      setNewUserForm({ full_name: '', email: '', password: '', cpf_cnpj: '', phone: '', role: 'revendedor' })
-      
-      // Recarrega apenas a lista de usuários/perfis
-      fetchProfiles() 
-    }
+  async function handleRegisterSale(e) {
+    e.preventDefault()
+    setSaleMessage({ type: '', text: '' })
 
     try {
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: newUserForm.email,
-    password: newUserForm.password,
-  })
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      const activeUserId = profile?.id || user?.id
 
-  if (authError) {
-    if (authError.message.includes('already registered')) {
-      throw new Error('Este e-mail já está cadastrado no sistema. Utilize outro e-mail.')
+      if (!activeUserId) {
+        throw new Error('Sessão expirada. Faça login novamente.')
+      }
+
+      const { error } = await supabase
+        .from('sales')
+        .insert({
+          revendedor_id: activeUserId,
+          order_number: saleForm.order_number,
+          volume_kg: parseFloat(saleForm.volume_kg),
+          revenue_brl: parseFloat(saleForm.revenue_brl),
+          status: 'pending'
+        })
+
+      if (error) throw error
+
+      setSaleMessage({ 
+        type: 'success', 
+        text: 'Compra informada com sucesso! Aguardando validação da equipe financeira.' 
+      })
+      setSaleForm({ order_number: '', volume_kg: '', revenue_brl: '' })
+      setIsNewSaleOpen(false)
+      fetchSales()
+    } catch (err) {
+      setSaleMessage({ type: 'error', text: 'Erro ao registrar compra: ' + err.message })
     }
-    throw authError
   }
-  } catch (err) {
-    alert('Erro ao criar usuário: ' + err.message)
-  } finally {
-    setSubmitting(false)
+
+  // 2. Função handleLogout corrigida
+  async function handleLogout() {
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Erro ao encerrar sessão no Supabase:', err.message)
+    } finally {
+      if (logout) logout()
+      localStorage.clear()
+      navigate('/login', { replace: true })
+    }
   }
-}
+
+  // 3. A função handleCopy vem logo em seguida sem erros de sintaxe
+  function handleCopy() {
+    navigator.clipboard.writeText(referralLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(referralLink)
