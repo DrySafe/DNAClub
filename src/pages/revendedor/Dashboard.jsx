@@ -95,7 +95,7 @@ export default function DashboardRevendedor() {
           referrer_level_at_creation,
           profiles!referrals_referred_id_fkey(full_name, cpf_cnpj)
         `)
-        .eq('referrer_id', profile.id)
+        .eq('referrer_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -110,7 +110,7 @@ export default function DashboardRevendedor() {
       const { data, error } = await supabase
         .from('sales')
         .select('*')
-        .eq('revendedor_id', profile.id)
+        .eq('revendedor_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -121,38 +121,35 @@ export default function DashboardRevendedor() {
   }
 
   // Registrar nova compra realizada pela revendedora
-  async function handleRegistrarCompra(e) {
-  e.preventDefault()
-  setSubmitting(true)
+  async function handleRegisterSale(e) {
+    e.preventDefault()
+    setSaleMessage({ type: '', text: '' })
 
-  try {
-    // 1. Garante que busca o usuário autenticado atual da sessão do Supabase
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+        revendedor_id: user.id,
+        order_number: saleForm.order_number,
+        volume_kg: parseFloat(saleForm.volume_kg),
+        revenue_brl: parseFloat(saleForm.revenue_brl),
+        status: 'pending' // Fica pendente para validação do financeiro
+      }
+      if (userError || !user) {
       alert('Sessão expirada. Por favor, faça login novamente.')
       return
-    }
 
-    // 2. Realiza o insert garantindo que user.id existe
-    const { data, error } = await supabase
-      .from('purchases') // Ou a tabela usada para compras no seu projeto
-      .insert({
-        user_id: user.id, // ID garantido do revendedor logado
-        amount: parseFloat(valorCompra),
-        status: 'pending'
+      if (error) throw error
+
+      setSaleMessage({ 
+        type: 'success', 
+        text: 'Compra informada com sucesso! Aguardando validação da equipe financeira.' 
       })
-
-    if (error) throw error
-
-    alert('Compra registrada com sucesso!')
-  } catch (err) {
-    console.error('Erro ao registrar compra:', err.message)
-    alert('Erro ao registrar compra: ' + err.message)
-  } finally {
-    setSubmitting(false)
+      setSaleForm({ order_number: '', volume_kg: '', revenue_brl: '' })
+      setIsNewSaleOpen(false)
+      fetchSales()
+    } catch (err) {
+      setSaleMessage({ type: 'error', text: 'Erro ao registrar compra: ' + err.message })
+    }
   }
-}
 
   function handleCopy() {
     navigator.clipboard.writeText(referralLink)
