@@ -111,22 +111,33 @@ export default function DashboardRevendedor() {
   }
 
   async function fetchSales() {
-    const activeUserId = profile?.id
-    if (!activeUserId) return
+  const activeUserId = profile?.id
+  if (!activeUserId) return
 
-    try {
-      const { data, error } = await supabase
-        .from('sales')
-        .select('*')
-        .eq('revendedor_id', activeUserId)
-        .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('sales')
+      .select(`
+        id, 
+        order_number, 
+        volume_kg, 
+        revenue_brl, 
+        status, 
+        created_at,
+        cliente:cliente_id (
+          full_name,
+          cpf_cnpj
+        )
+      `)
+      .eq('revendedor_id', activeUserId)
+      .order('created_at', { ascending: false })
 
-      if (error) throw error
-      setSales(data || [])
-    } catch (err) {
-      console.error('Erro ao carregar histórico de compras:', err.message)
-    }
+    if (error) throw error
+    setSales(data || [])
+  } catch (err) {
+    console.error('Erro ao carregar compras:', err.message)
   }
+}
 
   // Registrar nova compra realizada pela revendedora
   // Registrar nova compra realizada pela revendedora (Sintaxe Corrigida)

@@ -69,50 +69,71 @@ export default function IndicacaoPublica() {
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setSubmitting(true)
-    setStatusMessage({ type: '', text: '' })
+  async function fetchClientSales() {
+  const activeUserId = profile?.id
+  if (!activeUserId) return
 
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+  try {
+    const { data, error } = await supabase
+      .from('sales')
+      .select('id, order_number, volume_kg, revenue_brl, status, created_at')
+      .eq('cliente_id', activeUserId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    setClientSales(data || [])
+  } catch (err) {
+    console.error('Erro ao carregar histórico do cliente:', err.message)
+  }
+}
+
+  async function handleSubmit(e) {
+  e.preventDefault()
+  setSubmitting(true)
+  setStatusMessage({ type: '', text: '' })
+
+  try {
+    // 1. Cria o utilizador no Supabase Auth com e-mail e senha definidos pelo cliente
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+    })
+
+    if (authError) throw authError
+
+    if (authData?.user) {
+      // 2. Cria o perfil do cliente na tabela profiles com role 'cliente'
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: authData.user.id,
+        full_name: formData.full_name,
+        cpf_cnpj: formData.cpf_cnpj,
+        phone: formData.phone,
+        role: 'cliente',
+        level: 'DNA Profissional'
       })
 
-      if (authError) throw authError
+      if (profileError) throw profileError
 
-      if (authData?.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          full_name: formData.full_name,
-          cpf_cnpj: formData.cpf_cnpj,
-          phone: formData.phone,
-          role: 'cliente',
-          level: 'DNA Profissional'
+      // 3. Se houver revendedora vinculada pelo link ref, cria a indicação em 'referrals'
+      if (referrer?.id) {
+        const { error: refError } = await supabase.from('referrals').insert({
+          referrer_id: referrer.id,
+          referred_id: authData.user.id,
+          referrer_level_at_creation: referrer.level || 'DNA Profissional',
+          status: 'pending'
         })
 
-        if (profileError) throw profileError
-
-        if (referrer?.id) {
-          const { error: refError } = await supabase.from('referrals').insert({
-            referrer_id: referrer.id,
-            referred_id: authData.user.id,
-            referrer_level_at_creation: referrer.level || 'DNA Profissional',
-            status: 'pending'
-          })
-
-          if (refError) throw refError
-        }
-
-        setSubmitted(true)
+        if (refError) throw refError
       }
-    } catch (err) {
-      setStatusMessage({ type: 'error', text: 'Erro ao cadastrar indicação: ' + err.message })
-    } finally {
-      setSubmitting(false)
+
+      setSubmitted(true)
     }
+  } catch (err) {
+    setStatusMessage({ type: 'error', text: 'Erro ao cadastrar indicação: ' + err.message })
+  } finally {
+    setSubmitting(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
