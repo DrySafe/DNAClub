@@ -10,6 +10,7 @@ import {
 
 export default function DashboardRevendedor() {
   const { profile, logout } = useAuth()
+  const navigate = useNavigate() // <-- 2. Inicialize o navigate
   
   // Listas de dados
   const [referrals, setReferrals] = useState([])
@@ -17,7 +18,6 @@ export default function DashboardRevendedor() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [referralFilter, setReferralFilter] = useState('all')
-  const navigate = useNavigate()
 
   // Modal para informar compra
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false)
@@ -170,20 +170,16 @@ export default function DashboardRevendedor() {
     }
   }
 
-  // Função para garantir o encerramento de sessão e redirecionamento
+  // 3. Função de Logout completa
   async function handleLogout() {
     try {
-      // 1. Encerra a sessão no Supabase
-      await supabase.auth.signOut()
+      await supabase.auth.signOut() // Encerra sessão na API do Supabase
     } catch (err) {
-      console.error('Erro ao fazer logout no Supabase:', err.message)
+      console.error('Erro ao encerrar sessão no Supabase:', err.message)
     } finally {
-      // 2. Executa o logout do contexto se existir
-      if (logout) logout()
-      
-      // 3. Limpa o localStorage e redireciona forçadamente para a tela de login
-      localStorage.clear()
-      navigate('/login')
+      if (logout) logout() // Executa o logout da sua AuthContext
+      localStorage.clear() // Limpa tokens salvos no navegador
+      navigate('/login', { replace: true }) // Redireciona para o login
     }
   }
 
@@ -265,7 +261,7 @@ export default function DashboardRevendedor() {
             </div>
 
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="p-3.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl transition-all active:scale-95"
               title="Encerrar Sessão"
             >
