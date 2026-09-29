@@ -85,6 +85,9 @@ export default function DashboardRevendedor() {
   }
 
   async function fetchReferrals() {
+    const activeUserId = profile?.id
+    if (!activeUserId) return
+
     try {
       const { data, error } = await supabase
         .from('referrals')
@@ -95,7 +98,7 @@ export default function DashboardRevendedor() {
           referrer_level_at_creation,
           profiles!referrals_referred_id_fkey(full_name, cpf_cnpj)
         `)
-        .eq('referrer_id', user.id)
+        .eq('referrer_id', activeUserId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -106,11 +109,14 @@ export default function DashboardRevendedor() {
   }
 
   async function fetchSales() {
+    const activeUserId = profile?.id
+    if (!activeUserId) return
+
     try {
       const { data, error } = await supabase
         .from('sales')
         .select('*')
-        .eq('revendedor_id', user.id)
+        .eq('revendedor_id', activeUserId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
