@@ -227,6 +227,19 @@ export default function DashboardRevendedor() {
       // Recarrega apenas a lista de usuários/perfis
       fetchProfiles() 
     }
+
+    try {
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: newUserForm.email,
+    password: newUserForm.password,
+  })
+
+  if (authError) {
+    if (authError.message.includes('already registered')) {
+      throw new Error('Este e-mail já está cadastrado no sistema. Utilize outro e-mail.')
+    }
+    throw authError
+  }
   } catch (err) {
     alert('Erro ao criar usuário: ' + err.message)
   } finally {
