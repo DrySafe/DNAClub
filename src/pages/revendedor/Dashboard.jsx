@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { supabase } from '../../config/supabaseClient.js'
 import { 
@@ -16,6 +17,7 @@ export default function DashboardRevendedor() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [referralFilter, setReferralFilter] = useState('all')
+  const navigate = useNavigate()
 
   // Modal para informar compra
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false)
