@@ -1,3 +1,4 @@
+import Brand from "../../components/Brand.jsx";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../../config/supabaseClient.js";
@@ -52,9 +53,7 @@ export default function Registration() {
   }
   return (
     <main className="auth-page">
-      <Link className="brand" to="/login">
-        DNA <span>DEPILAMOR</span>
-      </Link>
+      <Brand to="/login" />
       <section className="auth-card">
         <p className="eyebrow">BEM-VINDA AO CLUBE</p>
         <h1>{code ? "Uma indicação especial" : "Sua conta no Clube DNA"}</h1>

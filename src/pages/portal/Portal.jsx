@@ -1,3 +1,4 @@
+import Brand from "../../components/Brand.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
@@ -1979,9 +1980,7 @@ export default function Portal() {
   return (
     <div className="portal">
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
-        <Link className="brand" to="/app/inicio">
-          DNA <span>DEPILAMOR</span>
-        </Link>
+        <Brand />
         <p className="sidebar-caption">CLUBE DE BENEFÍCIOS</p>
         <nav aria-label="Menu principal">
           {nav.map(([key, label, Icon]) => (

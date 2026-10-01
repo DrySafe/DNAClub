@@ -1,3 +1,4 @@
+import Brand from "../../components/Brand.jsx";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../config/supabaseClient.js";
@@ -34,6 +35,7 @@ export default function Recovery() {
   }
   return (
     <main className="auth-page">
+      <Brand to="/login" />
       <section className="auth-card">
         <h1>{updating ? "Definir nova senha" : "Recuperar senha"}</h1>
         {message && (
