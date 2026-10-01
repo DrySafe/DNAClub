@@ -24,10 +24,21 @@ A configuração inicial mantém validade de 365 dias, teto de cashback de 50%, 
 
 ## Pendências fora do SQL
 
-- Publicar a Edge Function `dna-invite`, definir `APP_ORIGIN` e conferir o serviço de e-mail para convites internos.
-- Conferir as URLs de redirecionamento do Supabase Auth para o domínio do portal.
+- Conferir a entrega de e-mail de um convite real. SMTP configurado; nenhum e-mail foi enviado pelos testes.
 - Validar login no navegador com as contas reais e conferir a classificação e os dados importados.
 
 As migrações foram executadas pela API administrativa, não pelo Supabase CLI. Não reaplique a migração inicial neste projeto: para adoção posterior do CLI, concilie o histórico de migrações antes de usar `db push`.
 
 O token administrativo não foi escrito em arquivos do repositório. Os testes e registros apresentados aqui não contêm seu valor.
+
+## Função de convites — 01/10/2026
+
+O erro de CORS vinha de uma função inexistente: o preflight retornava HTTP 404 / `NOT_FOUND`. A função `dna-invite` foi publicada pela API administrativa e está ACTIVE (versão 1). `APP_ORIGIN` e as URLs do Supabase Auth foram configurados para `https://dna-club.vercel.app`.
+
+- OPTIONS no projeto real: HTTP 204, origem permitida exata e headers do cliente Supabase.
+- POST sem token ou com token inválido: HTTP 401 com JSON e CORS.
+- Navegador na origem Vercel: preflight e POST chegam à função e a sessão inválida é recusada sem bloqueio de CORS.
+- Testes isolados: perfis cliente, revendedor e financeiro não podem convidar; administrador pode escolher o perfil do convidado, com retorno restrito ao portal e registro no histórico.
+- Frontend: mensagens retornadas pela função são mostradas no formulário, inclusive falha de e-mail e necessidade de ajuste do perfil.
+
+A confirmação da entrega de e-mail permanece com um convite real feito pelo administrador. Os testes não criaram participantes nem enviaram convites.

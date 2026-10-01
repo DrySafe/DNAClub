@@ -289,6 +289,49 @@ try {
   );
   await client.context.close();
   const admin = await fixture("admin");
+  let invitationAttempts = 0;
+  await admin.context.route("**/functions/v1/dna-invite", async (route) => {
+    invitationAttempts++;
+    const body = route.request().postDataJSON();
+    assert.equal(body.role, "admin");
+    assert.equal(body.email, "new-admin@example.test");
+    assert.equal(body.redirectTo, undefined);
+    await route.fulfill({
+      status: invitationAttempts === 1 ? 400 : 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify(
+        invitationAttempts === 1
+          ? { error: "Não foi possível convidar. Confira o envio de e-mail." }
+          : { ok: true },
+      ),
+    });
+  });
+  await admin.page.goto(`${base}/app/pessoas`);
+  await admin.page
+    .getByRole("button", { name: "Convidar", exact: true })
+    .click();
+  const invite = admin.page.getByRole("dialog");
+  await invite.getByLabel("Nome completo").fill("Novo Admin");
+  await invite
+    .getByLabel("E-mail", { exact: true })
+    .fill("new-admin@example.test");
+  await invite.getByLabel("Perfil", { exact: true }).selectOption("admin");
+  await invite.getByRole("button", { name: "Confirmar", exact: true }).click();
+  await admin.page
+    .getByRole("alert")
+    .filter({ hasText: "Confira o envio de e-mail." })
+    .first()
+    .waitFor();
+  await invite.getByRole("button", { name: "Confirmar", exact: true }).click();
+  await admin.page
+    .getByRole("status")
+    .filter({ hasText: "Convite enviado." })
+    .waitFor();
+  assert.equal(invitationAttempts, 2);
+  console.log(
+    "PASS: administrator invitation preserves chosen role, displays server errors, and allows retry",
+  );
   await admin.page.goto(`${base}/app/configuracoes`);
   const combination = admin.page.getByLabel(
     "Permitir desconto e cashback no mesmo pedido",

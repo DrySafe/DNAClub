@@ -1531,18 +1531,24 @@ export default function Portal() {
                           required: false,
                         }),
                       ],
-                      note: "O participante receberá um convite para definir a senha. Esta ação exige a função segura de convites instalada no Supabase.",
+                      note: "O participante receberá por e-mail um convite para definir a senha e acessar o clube com o perfil escolhido.",
                       submit: async (f) => {
                         setBusy(true);
                         try {
                           const { data: res, error: e } =
                             await supabase.functions.invoke("dna-invite", {
-                              body: {
-                                ...f,
-                                redirectTo: `${window.location.origin}/recuperar-senha?mode=reset`,
-                              },
+                              body: f,
                             });
-                          if (e) throw e;
+                          if (e) {
+                            const detail =
+                              e.context instanceof Response
+                                ? await e.context.json().catch(() => null)
+                                : null;
+                            throw new Error(
+                              detail?.error ||
+                                "Não foi possível conectar ao serviço de convites. Tente novamente.",
+                            );
+                          }
                           if (res?.error) throw new Error(res.error);
                           setSheet(null);
                           setMessage("Convite enviado.");

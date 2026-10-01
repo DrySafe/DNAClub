@@ -1,0 +1,4 @@
+[functions.dna-invite]
+# OPTIONS must reach the handler without a JWT. POST validates the session and
+# the administrator role with Supabase Auth and dna_members before inviting.
+verify_jwt = false

@@ -40,7 +40,11 @@ O cadastro público sempre cria **cliente**, independentemente de metadados envi
 
 Para habilitar o botão Convidar da tela Pessoas, publique `supabase/functions/dna-invite/index.ts` como Edge Function `dna-invite`. Configure `APP_ORIGIN` com a origem HTTPS exata do portal, sem caminho nem barra final. `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` são variáveis do ambiente da função, nunca do frontend. A função autentica o solicitante e exige papel admin antes de enviar um convite. O serviço de e-mail do Supabase precisa estar configurado.
 
-A função de convites foi preparada, mas seu envio real não foi executado: depende da publicação da função e da configuração de e-mail. Cadastros públicos não dependem dela.
+A função foi publicada no projeto `gptofnrdirvycesycidw`, com `APP_ORIGIN=https://dna-club.vercel.app`. O Supabase Auth usa esse domínio como Site URL e permite os dois retornos acima. O SMTP já está configurado no projeto; a entrega de um convite real ainda deve ser conferida pelo administrador.
+
+O arquivo `supabase/config.toml` define `verify_jwt = false` para esta função: o preflight OPTIONS chega sem sessão, enquanto todo POST exige validação do token por `auth.getUser` e papel `admin` na tabela `dna_members`. Não remova essas verificações do handler. Para republicar pelo CLI: `supabase functions deploy dna-invite --project-ref gptofnrdirvycesycidw`.
+
+A verificação em produção confirmou OPTIONS HTTP 204 e POST HTTP 401 para sessão ausente ou inválida, com os cabeçalhos CORS do domínio correto. Nenhum convite real foi enviado durante os testes.
 
 ## 3. Configuração inicial
 
