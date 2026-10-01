@@ -1,51 +1,59 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../config/supabaseClient.js'
-import { ShieldCheck, UserCheck, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react'
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../../config/supabaseClient.js";
+import {
+  ShieldCheck,
+  UserCheck,
+  Lock,
+  Mail,
+  ArrowRight,
+  AlertCircle,
+} from "lucide-react";
 
 export default function LoginPage() {
-  const [isManagerTab, setIsManagerTab] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
-  
-  const navigate = useNavigate()
+  const [isManagerTab, setIsManagerTab] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const navigate = useNavigate();
 
   async function handleLogin(e) {
-    e.preventDefault()
-    setLoading(true)
-    setErrorMessage('')
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
+      });
 
-      if (error) throw new Error('E-mail ou palavra-passe incorretos.')
+      if (error) throw new Error("E-mail ou senha incorretos.");
 
       // Procura o perfil no Supabase para redirecionar corretamente
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
+        .from("dna_members")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
 
       if (profileError || !profile) {
-        throw new Error('Perfil de utilizador não encontrado.')
+        navigate("/app/inicio");
+        return;
       }
 
       // Redireciona com base no perfil (role)
-      if (profile.role === 'admin' || profile.role === 'financeiro') {
-        navigate('/gerente')
+      if (profile.role === "admin" || profile.role === "financeiro") {
+        navigate("/app/inicio");
       } else {
-        navigate('/dashboard')
+        navigate("/app/inicio");
       }
     } catch (err) {
-      setErrorMessage(err.message)
+      setErrorMessage(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -66,28 +74,33 @@ export default function LoginPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-100">
-          
           {/* Tabs de Seleção de Perfil */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl mb-6">
             <button
               type="button"
-              onClick={() => { setIsManagerTab(false); setErrorMessage(''); }}
+              onClick={() => {
+                setIsManagerTab(false);
+                setErrorMessage("");
+              }}
               className={`flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 ${
                 !isManagerTab
-                  ? 'bg-white text-rose-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? "bg-white text-rose-600 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <UserCheck className="w-4 h-4" />
-              Revendedora
+              Cliente / Revendedora
             </button>
             <button
               type="button"
-              onClick={() => { setIsManagerTab(true); setErrorMessage(''); }}
+              onClick={() => {
+                setIsManagerTab(true);
+                setErrorMessage("");
+              }}
               className={`flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 ${
                 isManagerTab
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <ShieldCheck className="w-4 h-4" />
@@ -118,7 +131,9 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={isManagerTab ? "admin@depilamor.com.br" : "seu@email.com"}
+                  placeholder={
+                    isManagerTab ? "admin@depilamor.com.br" : "seu@email.com"
+                  }
                   className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
                 />
               </div>
@@ -126,7 +141,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Palavra-passe
+                Senha
               </label>
               <div className="relative rounded-2xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -145,12 +160,18 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between text-xs">
               <label className="flex items-center text-slate-600">
-                <input type="checkbox" className="rounded border-slate-300 text-rose-500 focus:ring-rose-400 mr-2" />
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-300 text-rose-500 focus:ring-rose-400 mr-2"
+                />
                 Lembrar-me
               </label>
-              <a href="#" className="font-semibold text-rose-600 hover:text-rose-700">
-                Esqueceu a palavra-passe?
-              </a>
+              <Link
+                to="/recuperar-senha"
+                className="font-semibold text-rose-600 hover:text-rose-700"
+              >
+                Esqueceu a senha?
+              </Link>
             </div>
 
             <button
@@ -158,8 +179,8 @@ export default function LoginPage() {
               disabled={loading}
               className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:opacity-50 ${
                 isManagerTab
-                  ? 'bg-slate-900 hover:bg-slate-800 shadow-slate-900/20'
-                  : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/25'
+                  ? "bg-slate-900 hover:bg-slate-800 shadow-slate-900/20"
+                  : "bg-rose-500 hover:bg-rose-600 shadow-rose-500/25"
               }`}
             >
               {loading ? (
@@ -172,14 +193,16 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
         </div>
-        
+
         {/* Footer Auxiliar */}
         <p className="mt-6 text-center text-xs text-slate-500">
-          Ainda não faz parte do clube? Contacte o suporte da Depilamor.
+          Ainda não tem conta?{" "}
+          <Link to="/cadastro" className="font-bold text-rose-600">
+            Cadastre-se
+          </Link>
         </p>
       </div>
     </div>
-  )
+  );
 }

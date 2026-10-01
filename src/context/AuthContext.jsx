@@ -1,59 +1,79 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../config/supabaseClient'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { supabase } from "../config/supabaseClient.js";
 
-const AuthContext = createContext({})
-
+const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const refreshProfile = useCallback(() => setRevision((r) => r + 1), []);
   useEffect(() => {
-    // 1. Obtém sessão atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else setLoading(false)
-    })
-
-    // 2. Escuta mudanças no estado de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
+    let alive = true;
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!alive) return;
+      if (sessionError) {
+        setError(sessionError.message);
+        setLoading(false);
       } else {
-        setProfile(null)
-        setLoading(false)
+        setUser(data.session?.user ?? null);
+        if (!data.session) setLoading(false);
       }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  async function fetchProfile(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) throw error
-      setProfile(data)
-    } catch (error) {
-      console.error('Erro ao carregar perfil do usuário:', error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const logout = () => supabase.auth.signOut()
-
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session) {
+        setProfile(null);
+        setLoading(false);
+      }
+    });
+    return () => {
+      alive = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    setLoading(true);
+    setError("");
+    setProfile(null);
+    supabase
+      .from("dna_members")
+      .select("*")
+      .eq("id", user.id)
+      .single()
+      .then(({ data, error: profileError }) => {
+        if (!alive) return;
+        if (profileError)
+          setError(
+            "Não foi possível carregar o perfil do portal. Verifique se a migração do Clube DNA foi aplicada no Supabase. " +
+              profileError.message,
+          );
+        else setProfile(data);
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, revision]);
+  const logout = async () => {
+    const { error: e } = await supabase.auth.signOut();
+    if (e) throw e;
+  };
   return (
-    <AuthContext.Provider value={{ user, profile, loading, logout }}>
+    <AuthContext.Provider
+      value={{ user, profile, loading, error, logout, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
-
-export const useAuth = () => useContext(AuthContext)
+export const useAuth = () => useContext(AuthContext);
